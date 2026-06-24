@@ -7,9 +7,12 @@ demais acoes de transpilacao permanecem reservadas para fases futuras.
 """
 
 import argparse
+import pprint
 import sys
 
 from lexer import ErroLexico, tokenize
+from parser import ErroSintatico
+from parser import parse as parser_parse
 
 
 def _imprimir_tokens(caminho):
@@ -21,12 +24,20 @@ def _imprimir_tokens(caminho):
     return 0
 
 
+def _imprimir_ast(caminho):
+    """Le `caminho`, parseia e imprime a AST indentada (FR-021, SC-004)."""
+    with open(caminho, encoding="utf-8") as f:
+        codigo = f.read()
+    ast = parser_parse(tokenize(codigo))
+    print(pprint.pformat(ast))
+    return 0
+
+
 def main(argv=None):
     """Faz o parse dos argumentos da linha de comando.
 
-    Os flags `--run` e `--ast` permanecem no-op; `--tokens` imprime os
-    tokens do arquivo informado. `--help` e a superficie de argumentos
-    sao preservados do scaffold.
+    `--tokens` imprime os tokens; `--ast` imprime a AST indentada;
+    `--run` permanece no-op (emissor e fase futura).
     """
     parser = argparse.ArgumentParser(
         prog="transpilador.py",
@@ -50,7 +61,7 @@ def main(argv=None):
     parser.add_argument(
         "--ast",
         action="store_true",
-        help="depuracao: imprime a AST gerada (no-op nesta fase)",
+        help="depuracao: imprime a AST gerada pelo parser",
     )
 
     args = parser.parse_args(argv)
@@ -61,6 +72,15 @@ def main(argv=None):
         try:
             return _imprimir_tokens(args.arquivo)
         except ErroLexico as erro:
+            print(str(erro), file=sys.stderr)
+            return 1
+
+    if args.ast:
+        if not args.arquivo:
+            parser.error("--ast requer um arquivo .por")
+        try:
+            return _imprimir_ast(args.arquivo)
+        except (ErroLexico, ErroSintatico) as erro:
             print(str(erro), file=sys.stderr)
             return 1
 
