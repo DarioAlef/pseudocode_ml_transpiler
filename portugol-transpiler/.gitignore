@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 portugol_out/
+
+# Universal / OS
+.env*
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
