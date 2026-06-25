@@ -1,7 +1,7 @@
-"""Contrato 1 (US2): a CLI principal responde a --help sem quebrar.
+"""Contrato 1 (US2/US3): a CLI principal responde a --help sem quebrar.
 
-Espelha `contracts/cli-and-imports.md` -> Contrato 1 e o passo 2 do
-quickstart.md. Cobre SC-002 e FR-009.
+Espelha `contracts/cli.md` -> C8 e o passo 2 do quickstart.md. Cobre SC-002
+e FR-009/FR-013, incluindo a flag --output-dir.
 """
 
 import os
@@ -33,6 +33,10 @@ class CliHelpContratoTest(unittest.TestCase):
         self.assertIn("--run", result.stdout)
         self.assertIn("--tokens", result.stdout)
         self.assertIn("--ast", result.stdout)
+
+    def test_help_lista_output_dir(self):
+        result = _run_cli("--help")
+        self.assertIn("--output-dir", result.stdout)
 
     def test_help_nao_lanca_traceback(self):
         result = _run_cli("--help")
