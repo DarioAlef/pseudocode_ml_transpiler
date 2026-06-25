@@ -189,6 +189,7 @@ Estes **não** existem no Portugol original — são a sua extensão para viabil
 com CSV. Implemente-os como funções Python num módulo `runtime_portugol.py` e
 mapeie as chamadas direto para elas:
 
+<<<<<<<< HEAD:docs/SPEC_PROJECT.md
 | Portugol (extensão)                                                | Python (runtime)                                                                                                                             |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ler_csv(caminho, X, y)` → devolve nº de linhas                    | `ler_csv(caminho, X, y, sep=",", pular_cabecalho=True)`                                                                                      |
@@ -196,6 +197,22 @@ mapeie as chamadas direto para elas:
 | `normalizar_treino_teste(X, n_tr, n_total, f)` → devolve `n_total` | padroniza `X[0:n_total]` in-place usando estatísticas **só do treino** (`X[0:n_tr]`); evita vazamento treino→teste                           |
 | `dividir_treino_teste(X, y, frac_teste)` → devolve nº de treino    | embaralha `X`/`y` **in-place** (mesma permutação) e devolve o tamanho do treino; as primeiras `n_tr` linhas viram treino, as restantes teste |
 | `salvar_pesos(caminho, pesos, intercepto)`                         | idem                                                                                                                                         |
+
+> **Por que `dividir_treino_teste` e `normalizar_treino_teste` retornam escalar
+> e operam in-place:** o Portugol Studio não desempacota tuplas (`a, b = f()`),
+> então o runtime segue o padrão do `ler_csv` (modifica as listas no lugar e
+> devolve um inteiro). A `normalizar_treino_teste` substitui o uso de
+> `normalizar_zscore` quando há separação treino/teste, para que as médias/desvios
+> venham apenas do treino.
+========
+| Portugol (extensão) | Python (runtime) |
+|---|---|
+| `ler_csv(caminho, X, y)` → devolve nº de linhas | `ler_csv(caminho, X, y, sep=",", pular_cabecalho=True)` |
+| `normalizar_zscore(X, n, f)` → devolve `(medias, desvios)` | idem (modifica `X` in-place) |
+| `normalizar_treino_teste(X, n_tr, n_total, f)` → devolve `n_total` | padroniza `X[0:n_total]` in-place usando estatísticas **só do treino** (`X[0:n_tr]`); evita vazamento treino→teste |
+| `dividir_treino_teste(X, y, frac_teste)` → devolve nº de treino | embaralha `X`/`y` **in-place** (mesma permutação) e devolve o tamanho do treino; as primeiras `n_tr` linhas viram treino, as restantes teste |
+| `salvar_pesos(caminho, pesos, intercepto)` | idem |
+>>>>>>>> 66f5f36 (chore: v1 stable final version (#21)):docs/SPEC_DEFINITIVA.md
 
 > **Por que `dividir_treino_teste` e `normalizar_treino_teste` retornam escalar
 > e operam in-place:** o Portugol Studio não desempacota tuplas (`a, b = f()`),
@@ -622,7 +639,10 @@ O `ler_csv` assume:
 
 Exemplo `dados_sinteticos.csv` (linearmente separável, classe 1 se
 `2*x1 - x2 + 0.5 > 0`; o exemplo da Seção 7 lê este arquivo):
+<<<<<<<< HEAD:docs/SPEC_PROJECT.md
 
+========
+>>>>>>>> 66f5f36 (chore: v1 stable final version (#21)):docs/SPEC_DEFINITIVA.md
 ```csv
 x1,x2,x3,x4,classe
 1.0,2.0,3.0,1.0,1
@@ -635,7 +655,10 @@ x1,x2,x3,x4,classe
 Script gerador de dados sintéticos (`exemplos/gerar_dados.py`). Expõe `gerar()`
 (reutilizável nos testes) e aceita um caminho de saída opcional via CLI; usa
 apenas a biblioteca padrão e semente fixa para reprodutibilidade:
+<<<<<<<< HEAD:docs/SPEC_PROJECT.md
 
+========
+>>>>>>>> 66f5f36 (chore: v1 stable final version (#21)):docs/SPEC_DEFINITIVA.md
 ```python
 import csv, os, random, sys
 
