@@ -71,6 +71,17 @@ _BUILTINS_MATH = {
     "logaritmo": "math.log",
     "raiz": "math.sqrt",
     "potencia": "math.pow",
+    "seno": "math.sin",
+    "cosseno": "math.cos",
+    "piso": "math.floor",
+    "teto": "math.ceil",
+}
+
+_BUILTINS_NATIVOS = {
+    "absoluto": "abs",
+    "arredondar": "round",
+    "minimo": "min",
+    "maximo": "max",
 }
 
 _BUILTINS_RUNTIME = {
@@ -541,7 +552,7 @@ class Emissor:
         return f"{base}{indices}"
 
     def _expr_call(self, node):
-        """Despacha chamada por nome: builtins de E/S, math, runtime ou direta."""
+        """Despacha chamada por nome: builtins de E/S, math, nativo, runtime ou direta."""
         callee = node.callee
         if isinstance(callee, LiteralNode) and callee.kind == "ident":
             nome = callee.value
@@ -566,9 +577,9 @@ class Emissor:
             self._usou_math = True
             inner = ", ".join(args)
             return f"{_BUILTINS_MATH[nome]}({inner})"
-        if nome == "absoluto":
+        if nome in _BUILTINS_NATIVOS:
             inner = ", ".join(args)
-            return f"abs({inner})"
+            return f"{_BUILTINS_NATIVOS[nome]}({inner})"
         if nome == "aleatorio":
             self._usou_random = True
             return "random.random()"
