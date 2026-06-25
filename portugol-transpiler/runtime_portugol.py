@@ -14,18 +14,24 @@ def ler_csv(caminho, X, y, sep=",", pular_cabecalho=True):
     """Colhe as features e o rotulo da ultima coluna de um CSV.
 
     Preenche X (lista de listas) e y (lista). Limpa X e y antes de preencher.
-    Retorna o numero de linhas lidas (n real).
+    Filtra linhas vazias ou comentários (iniciando com #). Retorna o numero
+    de linhas lidas (n real).
     """
     X.clear()
     y.clear()
     with open(caminho, newline="", encoding="utf-8") as f:
         leitor = csv.reader(f, delimiter=sep)
         linhas = list(leitor)
-    if pular_cabecalho and linhas:
-        linhas = linhas[1:]
+
+    linhas_filtradas = []
     for linha in linhas:
-        if not linha:
+        if not linha or not linha[0] or linha[0].strip().startswith("#"):
             continue
+        linhas_filtradas.append(linha)
+
+    if pular_cabecalho and linhas_filtradas:
+        linhas_filtradas = linhas_filtradas[1:]
+    for linha in linhas_filtradas:
         valores = [float(v) for v in linha]
         X.append(valores[:-1])
         y.append(float(valores[-1]))
@@ -74,3 +80,18 @@ def salvar_pesos(caminho, pesos, intercepto):
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(" ".join(str(p) for p in pesos) + "\n")
         f.write(str(intercepto) + "\n")
+
+
+def carregar_pesos(caminho):
+    """Carrega pesos e intercepto de um arquivo salvo por salvar_pesos.
+
+    Linha 1: pesos separados por espaço. Linha 2: intercepto.
+    Retorna (pesos, intercepto) tuple.
+    """
+    with open(caminho, "r", encoding="utf-8") as f:
+        linha1 = f.readline().strip()
+        linha2 = f.readline().strip()
+
+    pesos = [float(t) for t in linha1.split()] if linha1 else []
+    intercepto = float(linha2)
+    return pesos, intercepto

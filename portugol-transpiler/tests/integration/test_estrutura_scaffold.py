@@ -93,7 +93,7 @@ class EstruturaScaffoldTest(unittest.TestCase):
         with open(
             os.path.join(PROJECT_DIR, "exemplos", "dados.csv"), encoding="utf-8"
         ) as f:
-            linhas = [ln.strip() for ln in f if ln.strip()]
+            linhas = [ln.strip() for ln in f if ln.strip() and not ln.strip().startswith("#")]
         self.assertGreaterEqual(len(linhas), 2, "dados.csv precisa de cabecalho + 1 linha")
         cabecalho = linhas[0].split(",")
         self.assertEqual(cabecalho[-1].strip().lower(), "classe")
