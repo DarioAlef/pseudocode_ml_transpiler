@@ -22,6 +22,7 @@ from lexer import ErroLexico, tokenize
 from parser import ErroSintatico
 from parser import parse as parser_parse
 from emissor import emitir
+from semantic_analyzer import analisar
 
 
 def _imprimir_tokens(caminho):
@@ -51,7 +52,13 @@ def _gerar_py(caminho, output_dir):
     with open(caminho, encoding="utf-8") as f:
         codigo = f.read()
     ast = parser_parse(tokenize(codigo))
-    py = emitir(ast)
+    tabela, diagnosticos = analisar(ast)
+    for d in diagnosticos:
+        print(
+            f"{d.severidade} (linha {d.linha}, coluna {d.coluna}): {d.mensagem}",
+            file=sys.stderr,
+        )
+    py = emitir(ast, tabela)
 
     saida_dir = os.path.abspath(output_dir)
     os.makedirs(saida_dir, exist_ok=True)

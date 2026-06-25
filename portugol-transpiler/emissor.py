@@ -110,8 +110,10 @@ class Emissor:
         self._usou_math = False
         self._usou_random = False
         self._runtime_usado = set()
+        self._tabela_simbolos = None
+        self._funcao_atual = None
 
-    def gerar(self, programa):
+    def gerar(self, programa, tabela_simbolos=None):
         """Gera o codigo Python completo a partir de um ProgramNode.
 
         Reinicia o estado a cada chamada (deterministico). Nao modifica o
@@ -125,6 +127,8 @@ class Emissor:
         self._usou_math = False
         self._usou_random = False
         self._runtime_usado = set()
+        self._tabela_simbolos = tabela_simbolos
+        self._funcao_atual = None
 
         self._registrar_globais(programa.globais)
 
@@ -468,12 +472,25 @@ class Emissor:
             self.linha("return")
 
     def _emitir_call_stmt(self, node):
-        """Emite chamada usada como statement."""
+        """Emite chamada usada como statement.
+
+        `leia` recebe tratamento especial: emite uma linha de leitura por
+        argumento (FR-021), cada uma com a conversao do seu tipo.
+        """
+        callee = node.callee
+        if isinstance(callee, LiteralNode) and callee.kind == "ident" and callee.value == "leia":
+            if not node.args:
+                self.linha("input()")
+                return
+            for arg in node.args:
+                self.linha(self._leia_linha(arg))
+            return
         self.linha(self._expr(node))
 
     def _emitir_funcao(self, func):
         """Emite def nome(params): + global + corpo (ou pass)."""
         self._locais = {}
+        self._funcao_atual = func.nome
         for param in func.params:
             if param.tipo is not None:
                 self._locais[param.nome] = param.tipo.base
@@ -491,6 +508,7 @@ class Emissor:
         self._emitir_bloco(func.body)
         self.desindentar()
         self.linha("")
+        self._funcao_atual = None
 
     def _expr(self, node):
         """Despacha expressao para o emissor especifico; retorna string."""
@@ -573,7 +591,9 @@ class Emissor:
             inner = ", ".join(args)
             return f"print({inner})"
         if nome == "leia":
-            return self._emitir_leia_inline(node, args)
+            if not node.args:
+                return "input()"
+            return self._leia_linha(node.args[0])
         if nome in _BUILTINS_MATH:
             self._usou_math = True
             inner = ", ".join(args)
@@ -592,31 +612,39 @@ class Emissor:
         inner = ", ".join(args)
         return f"{nome}({inner})"
 
-    def _emitir_leia_inline(self, node, args):
-        """Retorna expressao de leitura: x = int/float/input() conforme tipo.
+    def _tipo_do_alvo(self, arg):
+        """Resolve o tipo declarado do alvo de leitura, ou None se desconhecido.
 
-        Espera exatamente um arg ident; fallback float quando tipo desconhecido.
+        Consulta a tabela de simbolos (se fornecida) e a inferencia local do
+        emissor (`_locais`/`_globais_escalares`). Alvos indexados ou nao
+        identificadores devolvem None (fallback float a cargo do chamador).
         """
-        if not node.args:
-            return "input()"
-        arg = node.args[0]
-        if isinstance(arg, LiteralNode) and arg.kind == "ident":
-            nome = arg.value
-            tipo = self._locais.get(nome) or self._globais_escalares.get(nome)
-            if tipo == "inteiro":
-                conversor = "int"
-            elif tipo == "real":
-                conversor = "float"
-            elif tipo == "cadeia":
-                conversor = None
-            else:
-                conversor = "float"
-            if conversor is None:
-                return f"{nome} = input()"
-            return f"{nome} = {conversor}(input())"
-        return "input()"
+        if not (isinstance(arg, LiteralNode) and arg.kind == "ident"):
+            return None
+        nome = arg.value
+        if self._tabela_simbolos is not None:
+            tipo = self._tabela_simbolos.tipo_de(nome, self._funcao_atual)
+            if tipo:
+                return tipo
+        return self._locais.get(nome) or self._globais_escalares.get(nome)
+
+    def _leia_linha(self, arg):
+        """Monta a linha de leitura de um alvo: '<alvo> = <conversor>(input())'.
+
+        `logico` gera leitura booleana case-insensitive; tipo desconhecido cai
+        no fallback `float` (FR-018, FR-019).
+        """
+        alvo = self._expr(arg)
+        tipo = self._tipo_do_alvo(arg)
+        if tipo == "inteiro":
+            return f"{alvo} = int(input())"
+        if tipo == "cadeia":
+            return f"{alvo} = input()"
+        if tipo == "logico":
+            return f'{alvo} = input().strip().lower() in ("verdadeiro", "true", "1")'
+        return f"{alvo} = float(input())"
 
 
-def emitir(programa):
-    """Atalho equivalente a Emissor().gerar(programa)."""
-    return Emissor().gerar(programa)
+def emitir(programa, tabela_simbolos=None):
+    """Atalho equivalente a Emissor().gerar(programa, tabela_simbolos)."""
+    return Emissor().gerar(programa, tabela_simbolos)
