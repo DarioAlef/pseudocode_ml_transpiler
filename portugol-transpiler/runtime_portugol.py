@@ -61,18 +61,45 @@ def normalizar_zscore(X, n, f):
 
 
 def dividir_treino_teste(X, y, frac_teste=0.2, semente=42):
-    """Divide X e y em treino/teste de forma deterministica com base em semente."""
+    """Embaralha X e y in-place (mesma permutacao) e devolve o tamanho do treino.
+
+    Apos a chamada, as primeiras `n_treino` linhas de X/y sao o conjunto de
+    treino e as restantes sao o conjunto de teste. A permutacao e deterministica
+    pela `semente`. Segue o padrao in-place + retorno escalar de `ler_csv`, para
+    ser consumivel pelo codigo Portugol transpilado (sem desempacotar tuplas).
+    """
+    n_total = len(y)
     random.seed(semente)
-    idx = list(range(len(y)))
+    idx = list(range(n_total))
     random.shuffle(idx)
-    corte = int(len(y) * (1 - frac_teste))
-    tr, te = idx[:corte], idx[corte:]
-    return (
-        [X[i] for i in tr],
-        [y[i] for i in tr],
-        [X[i] for i in te],
-        [y[i] for i in te],
-    )
+    X[:] = [X[i] for i in idx]
+    y[:] = [y[i] for i in idx]
+    n_teste = int(n_total * frac_teste)
+    return n_total - n_teste
+
+
+def normalizar_treino_teste(X, n_tr, n_total, f):
+    """Padroniza (z-score) X[0:n_total] in-place usando estatisticas do treino.
+
+    As medias e desvios sao calculados apenas sobre as `n_tr` primeiras linhas
+    (conjunto de treino) e aplicados a todas as `n_total` linhas (treino +
+    teste). Isso evita vazamento de informacao do teste para o treino. Evita
+    divisao por zero caso o desvio seja 0. Devolve `n_total`.
+    """
+    if n_tr == 0 or f == 0:
+        return n_total
+    medias = [sum(X[i][j] for i in range(n_tr)) / n_tr for j in range(f)]
+    desvios = []
+    for j in range(f):
+        var = sum((X[i][j] - medias[j]) ** 2 for i in range(n_tr)) / n_tr
+        desvio_std = math.sqrt(var)
+        if desvio_std == 0.0:
+            desvio_std = 1.0
+        desvios.append(desvio_std)
+    for i in range(n_total):
+        for j in range(f):
+            X[i][j] = (X[i][j] - medias[j]) / desvios[j]
+    return n_total
 
 
 def salvar_pesos(caminho, pesos, intercepto):
