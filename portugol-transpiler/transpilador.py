@@ -2,14 +2,27 @@
 
 Responsabilidade: ler um arquivo-fonte `.por` e orquestrar o pipeline de
 transpilacao (lexer -> parser -> AST -> emissor) para gerar codigo Python.
-Nesta fase, `--tokens` imprime a lista de tokens (modo de depuracao); as
-demais acoes de transpilacao permanecem reservadas para fases futuras.
+Modos:
+  - <arquivo>                  : gera <output-dir>/<nome>.py + copia runtime
+  - <arquivo> --run            : gera e executa o .py (cwd=<output-dir>)
+  - <arquivo> --tokens         : depuracao, imprime a lista de tokens
+  - <arquivo> --ast            : depuracao, imprime a AST indentada
+  - <arquivo> --output-dir DIR : define o diretorio de saida (default ./portugol_out/)
+Erros lexicos/sintaticos -> mensagem com linha/coluna em stderr, retorno 1.
 """
 
 import argparse
+import os
+import pprint
+import shutil
+import subprocess
 import sys
 
 from lexer import ErroLexico, tokenize
+from parser import ErroSintatico
+from parser import parse as parser_parse
+from emissor import emitir
+from semantic_analyzer import analisar
 
 
 def _imprimir_tokens(caminho):
@@ -21,13 +34,74 @@ def _imprimir_tokens(caminho):
     return 0
 
 
-def main(argv=None):
-    """Faz o parse dos argumentos da linha de comando.
+def _imprimir_ast(caminho):
+    """Le `caminho`, parseia e imprime a AST indentada (FR-021, SC-004)."""
+    with open(caminho, encoding="utf-8") as f:
+        codigo = f.read()
+    ast = parser_parse(tokenize(codigo))
+    print(pprint.pformat(ast))
+    return 0
 
-    Os flags `--run` e `--ast` permanecem no-op; `--tokens` imprime os
-    tokens do arquivo informado. `--help` e a superficie de argumentos
-    sao preservados do scaffold.
+
+def _gerar_py(caminho, output_dir):
+    """Le .por, transpila e escreve <output_dir>/<nome>.py + copia runtime.
+
+    `output_dir` e resolvido relativo ao CWD via `os.path.abspath`. Retorna o
+    caminho absoluto do .py gerado. Cria <output_dir> se necessario (FR-008).
     """
+    with open(caminho, encoding="utf-8") as f:
+        codigo = f.read()
+    ast = parser_parse(tokenize(codigo))
+    tabela, diagnosticos = analisar(ast)
+    for d in diagnosticos:
+        print(
+            f"{d.severidade} (linha {d.linha}, coluna {d.coluna}): {d.mensagem}",
+            file=sys.stderr,
+        )
+    py = emitir(ast, tabela)
+
+    saida_dir = os.path.abspath(output_dir)
+    os.makedirs(saida_dir, exist_ok=True)
+
+    nome_base = os.path.splitext(os.path.basename(caminho))[0]
+    caminho_py = os.path.join(saida_dir, f"{nome_base}.py")
+    with open(caminho_py, "w", encoding="utf-8") as f:
+        f.write(py)
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    runtime_src = os.path.join(base_dir, "runtime_portugol.py")
+    runtime_dst = os.path.join(saida_dir, "runtime_portugol.py")
+    if os.path.exists(runtime_src):
+        shutil.copyfile(runtime_src, runtime_dst)
+
+    return caminho_py
+
+
+def _transpilar(caminho, output_dir):
+    """Gera o .py e imprime o caminho gerado no stdout. Retorna 0."""
+    caminho_py = _gerar_py(caminho, output_dir)
+    print(caminho_py)
+    return 0
+
+
+def _transpilar_e_rodar(caminho, output_dir):
+    """Gera o .py e o executa via subprocess com cwd=<output-dir>.
+
+    Encaminha stdin/stdout/stderr; retorna o codigo de saida do filho.
+    """
+    caminho_py = _gerar_py(caminho, output_dir)
+    print(caminho_py)
+    saida_dir = os.path.abspath(output_dir)
+    nome_arq = os.path.basename(caminho_py)
+    resultado = subprocess.run(
+        [sys.executable, nome_arq],
+        cwd=saida_dir,
+    )
+    return resultado.returncode
+
+
+def main(argv=None):
+    """Faz o parse dos argumentos da linha de comando e despacha a acao."""
     parser = argparse.ArgumentParser(
         prog="transpilador.py",
         description="Transpilador Portugol -> Python.",
@@ -40,7 +114,7 @@ def main(argv=None):
     parser.add_argument(
         "--run",
         action="store_true",
-        help="gera e executa o codigo Python resultante (no-op nesta fase)",
+        help="gera e executa o codigo Python resultante",
     )
     parser.add_argument(
         "--tokens",
@@ -50,7 +124,13 @@ def main(argv=None):
     parser.add_argument(
         "--ast",
         action="store_true",
-        help="depuracao: imprime a AST gerada (no-op nesta fase)",
+        help="depuracao: imprime a AST gerada pelo parser",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="./portugol_out/",
+        help="diretorio de destino do .py e do runtime_portugol.py "
+        "(default: ./portugol_out/)",
     )
 
     args = parser.parse_args(argv)
@@ -61,6 +141,27 @@ def main(argv=None):
         try:
             return _imprimir_tokens(args.arquivo)
         except ErroLexico as erro:
+            print(str(erro), file=sys.stderr)
+            return 1
+
+    if args.ast:
+        if not args.arquivo:
+            parser.error("--ast requer um arquivo .por")
+        try:
+            return _imprimir_ast(args.arquivo)
+        except (ErroLexico, ErroSintatico) as erro:
+            print(str(erro), file=sys.stderr)
+            return 1
+
+    if args.arquivo:
+        try:
+            if args.run:
+                return _transpilar_e_rodar(args.arquivo, args.output_dir)
+            return _transpilar(args.arquivo, args.output_dir)
+        except (ErroLexico, ErroSintatico) as erro:
+            print(str(erro), file=sys.stderr)
+            return 1
+        except FileNotFoundError as erro:
             print(str(erro), file=sys.stderr)
             return 1
 
