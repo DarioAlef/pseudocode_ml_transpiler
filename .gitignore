@@ -5,6 +5,7 @@
 .opencode
 CLAUDE.md
 specs
+portugol_out/*
 
 # Python
 __pycache__/
@@ -21,3 +22,4 @@ venv/
 Thumbs.db
 *.tmp
 *.swp
+portugol_out/

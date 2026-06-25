@@ -86,7 +86,7 @@ programa {
 
   funcao inicio() {
     escreval("=== Regressao Logistica em Portugol ===")
-    N = ler_csv("dados_sinteticos.csv", X, y)
+    N = ler_csv("../portugol-transpiler/exemplos/dados.csv", X, y)
     escreval("Linhas lidas: ", N)
 
     // embaralha e separa treino/teste in-place; N_TR = nº de linhas de treino

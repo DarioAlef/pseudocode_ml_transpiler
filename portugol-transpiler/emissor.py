@@ -599,9 +599,10 @@ class Emissor:
         return str(value)
 
     def _requotar_cadeia(self, valor):
-        """Re-insere aspas em cadeia (lexer removeu): usa aspas duplas com escape."""
-        escapado = valor.replace("\\", "\\\\").replace("\"", "\\\"")
-        return f"\"{escapado}\""
+        """Re-insere aspas em cadeia. Preserva sequências de escape como \\n."""
+        # Convertemos quebras de linha reais em \\n para evitar SyntaxError no Python
+        valor = valor.replace("\n", "\\n")
+        return f"\"{valor}\""
 
     def _expr_binary(self, node):
         """Emite (left op right) com parentetizacao total."""
