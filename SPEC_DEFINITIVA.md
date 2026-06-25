@@ -182,8 +182,16 @@ mapeie as chamadas direto para elas:
 |---|---|
 | `ler_csv(caminho, X, y)` → devolve nº de linhas | `ler_csv(caminho, X, y, sep=",", pular_cabecalho=True)` |
 | `normalizar_zscore(X, n, f)` → devolve `(medias, desvios)` | idem (modifica `X` in-place) |
-| `dividir_treino_teste(X, y, frac_teste)` | idem |
+| `normalizar_treino_teste(X, n_tr, n_total, f)` → devolve `n_total` | padroniza `X[0:n_total]` in-place usando estatísticas **só do treino** (`X[0:n_tr]`); evita vazamento treino→teste |
+| `dividir_treino_teste(X, y, frac_teste)` → devolve nº de treino | embaralha `X`/`y` **in-place** (mesma permutação) e devolve o tamanho do treino; as primeiras `n_tr` linhas viram treino, as restantes teste |
 | `salvar_pesos(caminho, pesos, intercepto)` | idem |
+
+> **Por que `dividir_treino_teste` e `normalizar_treino_teste` retornam escalar
+> e operam in-place:** o Portugol Studio não desempacota tuplas (`a, b = f()`),
+> então o runtime segue o padrão do `ler_csv` (modifica as listas no lugar e
+> devolve um inteiro). A `normalizar_treino_teste` substitui o uso de
+> `normalizar_zscore` quando há separação treino/teste, para que as médias/desvios
+> venham apenas do treino.
 
 > **Atenção às assinaturas:** todas as funções do runtime usam argumentos
 > **posicionais** (sem argumentos nomeados, que não existem em Portugol). Os
@@ -232,7 +240,8 @@ projeto/
 ├── runtime_portugol.py    # ler_csv, normalizar_zscore, etc. (copiado p/ saída)
 └── exemplos/
     ├── regressao_logistica.por
-    └── dados.csv
+    ├── gerar_dados.py          # gera o dados_sinteticos.csv (semente fixa)
+    └── dados_sinteticos.csv    # dataset sintético linearmente separável
 ```
 
 Reaproveite das seções 7–9 da spec antiga: **categorias de token, gramática BNF e
@@ -293,13 +302,33 @@ def normalizar_zscore(X, n, f):
     return medias, desvios
 
 def dividir_treino_teste(X, y, frac_teste=0.2, semente=42):
+    """Embaralha X e y in-place (mesma permutação) e devolve o tamanho do treino.
+    Após a chamada, as primeiras n_treino linhas de X/y são treino e o restante
+    é teste. Segue o padrão in-place + retorno escalar de ler_csv."""
+    n_total = len(y)
     random.seed(semente)
-    idx = list(range(len(y)))
+    idx = list(range(n_total))
     random.shuffle(idx)
-    corte = int(len(y) * (1 - frac_teste))
-    tr, te = idx[:corte], idx[corte:]
-    return ([X[i] for i in tr], [y[i] for i in tr],
-            [X[i] for i in te], [y[i] for i in te])
+    X[:] = [X[i] for i in idx]
+    y[:] = [y[i] for i in idx]
+    n_teste = int(n_total * frac_teste)
+    return n_total - n_teste
+
+def normalizar_treino_teste(X, n_tr, n_total, f):
+    """Padroniza (z-score) X[0:n_total] in-place usando médias/desvios calculados
+    APENAS sobre o treino X[0:n_tr]. Aplica as mesmas estatísticas ao teste,
+    evitando vazamento. Trata desvio zero como 1.0. Devolve n_total."""
+    if n_tr == 0 or f == 0:
+        return n_total
+    medias = [sum(X[i][j] for i in range(n_tr)) / n_tr for j in range(f)]
+    desvios = []
+    for j in range(f):
+        var = sum((X[i][j] - medias[j])**2 for i in range(n_tr)) / n_tr
+        desvios.append(math.sqrt(var) or 1.0)
+    for i in range(n_total):
+        for j in range(f):
+            X[i][j] = (X[i][j] - medias[j]) / desvios[j]
+    return n_total
 
 def salvar_pesos(caminho, pesos, intercepto):
     with open(caminho, "w", encoding="utf-8") as f:
@@ -327,15 +356,19 @@ programa {
   inteiro NUM_FEATURES = 4
   inteiro EPOCAS       = 2000
   real    TAXA         = 0.1
+  real    FRAC_TESTE   = 0.2
 
   // ===== Dados e modelo (globais) =====
   // O tamanho declarado é um hint de tipo; ler_csv substitui o conteúdo
   // pelas linhas reais do CSV (X e y crescem dinamicamente em Python).
+  // Após dividir_treino_teste, as primeiras N_TR linhas são treino e as
+  // restantes (de N_TR até N) são teste.
   real X[5000][4]      // features (preenchido por ler_csv)
   real y[5000]         // rótulos 0/1
   real pesos[4]
   real intercepto = 0.0
-  inteiro N = 0        // nº real de linhas lido do CSV
+  inteiro N = 0        // nº total de linhas lido do CSV
+  inteiro N_TR = 0     // nº de linhas de treino
 
   // sigmoide(z) = 1 / (1 + e^-z)
   funcao real sigmoide(real z) {
@@ -352,19 +385,19 @@ programa {
     retorne sigmoide(z)
   }
 
-  // custo médio (log-loss) sobre o dataset
+  // custo médio (log-loss) sobre o conjunto de TREINO (linhas 0..N_TR)
   funcao real custo() {
     real soma = 0.0
-    para (inteiro i = 0; i < N; i++) {
+    para (inteiro i = 0; i < N_TR; i++) {
       real p = prever(i)
       se (p < 0.0000000000001) { p = 0.0000000000001 }
       se (p > 0.9999999999999) { p = 0.9999999999999 }
       soma = soma - (y[i] * logaritmo(p) + (1.0 - y[i]) * logaritmo(1.0 - p))
     }
-    retorne soma / N
+    retorne soma / N_TR
   }
 
-  // um passo de gradiente descendente sobre todo o dataset
+  // um passo de gradiente descendente sobre o conjunto de TREINO
   funcao treinar() {
     para (inteiro epoca = 0; epoca < EPOCAS; epoca++) {
       real grad_w[4]
@@ -373,7 +406,7 @@ programa {
         grad_w[j] = 0.0
       }
 
-      para (inteiro i = 0; i < N; i++) {
+      para (inteiro i = 0; i < N_TR; i++) {
         real erro = prever(i) - y[i]           // (ŷ - y)
         grad_b = grad_b + erro
         para (inteiro j = 0; j < NUM_FEATURES; j++) {
@@ -382,9 +415,9 @@ programa {
       }
 
       para (inteiro j = 0; j < NUM_FEATURES; j++) {
-        pesos[j] = pesos[j] - TAXA * (grad_w[j] / N)
+        pesos[j] = pesos[j] - TAXA * (grad_w[j] / N_TR)
       }
-      intercepto = intercepto - TAXA * (grad_b / N)
+      intercepto = intercepto - TAXA * (grad_b / N_TR)
 
       se (epoca % 200 == 0) {
         escreval("Epoca ", epoca, " | custo: ", custo())
@@ -392,23 +425,28 @@ programa {
     }
   }
 
-  // acurácia: fração de classes previstas corretamente
-  funcao real acuracia() {
+  // acurácia sobre o conjunto de TESTE (linhas N_TR..N), nunca visto no treino
+  funcao real acuracia_teste() {
     inteiro acertos = 0
-    para (inteiro i = 0; i < N; i++) {
+    para (inteiro i = N_TR; i < N; i++) {
       inteiro classe = 0
       se (prever(i) >= 0.5) { classe = 1 }
       se (classe == y[i]) { acertos = acertos + 1 }
     }
-    retorne acertos / N
+    retorne acertos / (N - N_TR)
   }
 
   funcao inicio() {
     escreval("=== Regressao Logistica em Portugol ===")
-    N = ler_csv("dados.csv", X, y)
+    N = ler_csv("dados_sinteticos.csv", X, y)
     escreval("Linhas lidas: ", N)
 
-    normalizar_zscore(X, N, NUM_FEATURES)   // padroniza as features (essencial!)
+    // embaralha e separa treino/teste in-place; N_TR = nº de linhas de treino
+    N_TR = dividir_treino_teste(X, y, FRAC_TESTE)
+    escreval("Treino: ", N_TR, " | Teste: ", N - N_TR)
+
+    // padroniza usando estatísticas SÓ do treino, aplicadas a treino e teste
+    normalizar_treino_teste(X, N_TR, N, NUM_FEATURES)
 
     para (inteiro j = 0; j < NUM_FEATURES; j++) {
       pesos[j] = 0.0
@@ -418,7 +456,7 @@ programa {
     treinar()
 
     escreval("")
-    escreval("Acuracia final: ", acuracia())
+    escreval("Acuracia final: ", acuracia_teste())
     escreval("Intercepto: ", intercepto)
     para (inteiro j = 0; j < NUM_FEATURES; j++) {
       escreval("peso[", j, "] = ", pesos[j])
@@ -439,23 +477,24 @@ programa {
 ```python
 # GERADO AUTOMATICAMENTE — NÃO EDITE
 import math
-from runtime_portugol import ler_csv, normalizar_zscore, salvar_pesos
+from runtime_portugol import dividir_treino_teste, ler_csv, normalizar_treino_teste, salvar_pesos
 
 NUM_FEATURES = 4
 EPOCAS = 2000
 TAXA = 0.1
+FRAC_TESTE = 0.2
 
 X = [[0.0] * 4 for _ in range(5000)]
 y = [0.0] * 5000
 pesos = [0.0] * 4
 intercepto = 0.0
 N = 0
+N_TR = 0
 
 def sigmoide(z):
     return 1.0 / (1.0 + math.exp(-z))
 
 def prever(i):
-    # Retorna a PROBABILIDADE (0..1), não a classe. Classe = 1 se >= 0.5.
     z = intercepto
     for j in range(0, NUM_FEATURES):
         z = z + pesos[j] * X[i][j]
@@ -463,12 +502,12 @@ def prever(i):
 
 def custo():
     soma = 0.0
-    for i in range(0, N):
+    for i in range(0, N_TR):
         p = prever(i)
         if p < 0.0000000000001: p = 0.0000000000001
         if p > 0.9999999999999: p = 0.9999999999999
         soma = soma - (y[i] * math.log(p) + (1.0 - y[i]) * math.log(1.0 - p))
-    return soma / N
+    return soma / N_TR
 
 def treinar():
     global intercepto
@@ -477,40 +516,42 @@ def treinar():
         grad_b = 0.0
         for j in range(0, NUM_FEATURES):
             grad_w[j] = 0.0
-        for i in range(0, N):
+        for i in range(0, N_TR):
             erro = prever(i) - y[i]
             grad_b = grad_b + erro
             for j in range(0, NUM_FEATURES):
                 grad_w[j] = grad_w[j] + erro * X[i][j]
         for j in range(0, NUM_FEATURES):
-            pesos[j] = pesos[j] - TAXA * (grad_w[j] / N)
-        intercepto = intercepto - TAXA * (grad_b / N)
+            pesos[j] = pesos[j] - TAXA * (grad_w[j] / N_TR)
+        intercepto = intercepto - TAXA * (grad_b / N_TR)
         if epoca % 200 == 0:
-            print("Epoca ", epoca, " | custo: ", custo(), sep="")
+            print("Epoca ", epoca, " | custo: ", custo())
 
-def acuracia():
+def acuracia_teste():
     acertos = 0
-    for i in range(0, N):
+    for i in range(N_TR, N):
         classe = 0
         if prever(i) >= 0.5: classe = 1
         if classe == y[i]: acertos = acertos + 1
-    return acertos / N
+    return acertos / (N - N_TR)
 
 def inicio():
-    global N, intercepto
+    global N, N_TR, intercepto
     print("=== Regressao Logistica em Portugol ===")
-    N = ler_csv("dados.csv", X, y)
-    print("Linhas lidas: ", N, sep="")
-    normalizar_zscore(X, N, NUM_FEATURES)
+    N = ler_csv("dados_sinteticos.csv", X, y)
+    print("Linhas lidas: ", N)
+    N_TR = dividir_treino_teste(X, y, FRAC_TESTE)
+    print("Treino: ", N_TR, " | Teste: ", N - N_TR)
+    normalizar_treino_teste(X, N_TR, N, NUM_FEATURES)
     for j in range(0, NUM_FEATURES):
         pesos[j] = 0.0
     intercepto = 0.0
     treinar()
     print("")
-    print("Acuracia final: ", acuracia(), sep="")
-    print("Intercepto: ", intercepto, sep="")
+    print("Acuracia final: ", acuracia_teste())
+    print("Intercepto: ", intercepto)
     for j in range(0, NUM_FEATURES):
-        print("peso[", j, "] = ", pesos[j], sep="")
+        print("peso[", j, "] = ", pesos[j])
     salvar_pesos("modelo.txt", pesos, intercepto)
 
 if __name__ == "__main__":
@@ -565,7 +606,8 @@ O `ler_csv` assume:
 - Todos os valores devem ser numéricos (sem categorias textuais — faça
   encoding manual antes, se precisar).
 
-Exemplo `dados.csv` (linearmente separável, classe 1 se `2*x1 - x2 + 0.5 > 0`):
+Exemplo `dados_sinteticos.csv` (linearmente separável, classe 1 se
+`2*x1 - x2 + 0.5 > 0`; o exemplo da Seção 7 lê este arquivo):
 ```csv
 x1,x2,x3,x4,classe
 1.0,2.0,3.0,1.0,1
@@ -575,19 +617,26 @@ x1,x2,x3,x4,classe
 ...
 ```
 
-Script gerador de dados sintéticos (`gerar_dados.py`):
+Script gerador de dados sintéticos (`exemplos/gerar_dados.py`). Expõe `gerar()`
+(reutilizável nos testes) e aceita um caminho de saída opcional via CLI; usa
+apenas a biblioteca padrão e semente fixa para reprodutibilidade:
 ```python
-import csv, random, math
-random.seed(42)
-N = 500
-with open("dados.csv", "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["x1","x2","x3","x4","classe"])
-    for _ in range(N):
-        x = [random.uniform(-3, 3) for _ in range(4)]
-        z = 2*x[0] - 1*x[1] + 0.5*x[2] - 0.3*x[3] + 0.5
-        y = 1 if z > 0 else 0
-        w.writerow([*x, y])
+import csv, os, random, sys
+
+CABECALHO = ["x1", "x2", "x3", "x4", "classe"]
+
+def gerar(caminho, n=500, semente=42):
+    """Escreve n linhas sintéticas em `caminho` (CSV com cabeçalho)."""
+    os.makedirs(os.path.dirname(os.path.abspath(caminho)), exist_ok=True)
+    random.seed(semente)
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(CABECALHO)
+        for _ in range(n):
+            x = [random.uniform(-3, 3) for _ in range(4)]
+            z = 2.0*x[0] - 1.0*x[1] + 0.5*x[2] - 0.3*x[3] + 0.5
+            w.writerow([*x, 1 if z > 0.0 else 0])
+    return n
 ```
 
 ### 11.2 Testes unitários
@@ -599,9 +648,10 @@ with open("dados.csv", "w", newline="") as f:
   - `fatorial.por`: fatorial iterativo (testa `para`).
   - `vetor.por`: somar elementos de um vetor.
 - **Teste de ML (o que valida o projeto):** gere um CSV sintético linearmente
-  separável (ex.: classe 1 se `2*x1 - x2 + 0.5 > 0`), com ~500 linhas. Critério de
-  aprovação: **acurácia ≥ 0.95** após o treino. (Para regressão logística,
-  acurácia é a métrica certa — não MSE.)
+  separável (ex.: classe 1 se `2*x1 - x2 + 0.5 > 0`), com ~500 linhas, separe em
+  treino/teste e treine só no treino. Critério de aprovação: **acurácia ≥ 0.95 no
+  conjunto de teste** (held-out). (Para regressão logística, acurácia é a métrica
+  certa — não MSE.)
 
 ---
 

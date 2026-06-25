@@ -5,3 +5,10 @@
 .opencode
 CLAUDE.md
 specs
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/

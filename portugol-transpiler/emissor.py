@@ -87,6 +87,7 @@ _BUILTINS_NATIVOS = {
 _BUILTINS_RUNTIME = {
     "ler_csv",
     "normalizar_zscore",
+    "normalizar_treino_teste",
     "dividir_treino_teste",
     "salvar_pesos",
     "carregar_pesos",

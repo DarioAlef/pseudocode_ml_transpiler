@@ -35,6 +35,21 @@ python transpilador.py ../exercises_portugol/01_media_nota.por --run
 - `1`: arquivo inexistente ou erro lexico/sintatico (mensagem em `stderr`,
   sem traceback).
 
+## Exemplo de regressao logistica (meta do projeto)
+
+O exemplo `exemplos/regressao_logistica.por` treina uma regressao logistica
+lendo `dados_sinteticos.csv`. Gere os dados sinteticos (reprodutiveis, semente
+fixa) e rode o treino:
+
+```bash
+python exemplos/gerar_dados.py portugol_out/dados_sinteticos.csv
+python transpilador.py exemplos/regressao_logistica.por --run
+```
+
+A saida mostra o custo diminuindo ao longo das epocas e a acuracia final
+(>= 0.95). O gerador escreve um arquivo proprio; o `exemplos/dados.csv`
+existente nao e modificado.
+
 ## Dependencias
 
 Apenas a biblioteca padrao do Python 3.x (por isso `requirements.txt` esta
