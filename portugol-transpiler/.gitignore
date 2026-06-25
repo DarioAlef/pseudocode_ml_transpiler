@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 portugol_out/
+saida/
 
 # Universal / OS
 .env*
