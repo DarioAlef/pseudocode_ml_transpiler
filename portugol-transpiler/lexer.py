@@ -27,6 +27,12 @@ class TokenType(enum.Enum):
     SENAO = "senao"
     ENQUANTO = "enquanto"
     PARA = "para"
+    INCLUA = "inclua"
+    BIBLIOTECA = "biblioteca"
+    ESCOLHA = "escolha"
+    CASO = "caso"
+    PARE = "pare"
+    CONTRARIO = "contrario"
 
     INT_LIT = "INT_LIT"
     FLOAT_LIT = "FLOAT_LIT"
@@ -64,6 +70,8 @@ class TokenType(enum.Enum):
     VIRGULA = ","
     PONTO_VIRGULA = ";"
     DOIS_PONTOS = ":"
+    PONTO = "."
+    SETA = "-->"
 
     EOF = "EOF"
 
@@ -114,6 +122,16 @@ PALAVRAS_CHAVE = {
     "e": TokenType.AND,
     "ou": TokenType.OR,
     "nao": TokenType.NOT,
+    "inclua": TokenType.INCLUA,
+    "biblioteca": TokenType.BIBLIOTECA,
+    "escolha": TokenType.ESCOLHA,
+    "caso": TokenType.CASO,
+    "pare": TokenType.PARE,
+    "contrario": TokenType.CONTRARIO,
+}
+
+_OPERADORES_3CHAR = {
+    "-->": TokenType.SETA,
 }
 
 _OPERADORES_2CHAR = {
@@ -151,6 +169,7 @@ _PONTUACAO = {
     ",": TokenType.VIRGULA,
     ";": TokenType.PONTO_VIRGULA,
     ":": TokenType.DOIS_PONTOS,
+    ".": TokenType.PONTO,
 }
 
 _LETRA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
@@ -274,6 +293,12 @@ class Lexer:
     def _ler_operador(self):
         linha = self.linha
         coluna = self.coluna
+        candidato_3 = self.codigo[self.pos:self.pos + 3]
+        if candidato_3 in _OPERADORES_3CHAR:
+            self._avancar()
+            self._avancar()
+            self._avancar()
+            return Token(_OPERADORES_3CHAR[candidato_3], candidato_3, linha, coluna)
         candidato_2 = self.codigo[self.pos:self.pos + 2]
         if candidato_2 in _OPERADORES_2CHAR:
             self._avancar()

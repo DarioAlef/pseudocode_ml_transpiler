@@ -21,7 +21,7 @@ from ast_nodes import (  # noqa: E402
 )
 from emissor import emitir  # noqa: E402
 
-CABECALHO = "# GERADO AUTOMATICAMENTE — NÃO EDITE"
+CABECALHO = "# GERADO AUTOMATICAMENTE"
 
 
 def _programa_com_call(nome_builtin, args=None):

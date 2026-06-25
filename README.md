@@ -1,34 +1,34 @@
-# Portugol Transpiler
+# Transpilador Portugol
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Licença: MIT](https://img.shields.io/badge/license-MIT-green)
 
-A Python transpiler that converts [Portugol Studio](https://www.univali.br/en/) pseudocode into executable Python, enabling students to learn compiler design while solving real ML problems.
+Um transpilador Python que converte pseudocódigo do [Portugol Studio](https://www.univali.br/en/) em código Python executável, permitindo que estudantes aprendam sobre construção de compiladores enquanto resolvem problemas reais de Machine Learning (ML).
 
-**📘 Main Goal**: Write and train a logistic regression classifier in Portugol by reading data from CSV files.
+**📘 Objetivo Principal**: Escrever e treinar um classificador de Regressão Logística em Portugol lendo dados de arquivos CSV.
 
 ---
 
-## Quick Start
+## Início Rápido
 
-Get the transpiler running in under 5 minutes:
+Coloque o transpilador para rodar em menos de 5 minutos:
 
-### 1. Install Python 3.10+
+### 1. Instale Python 3.10+
 
 ```bash
-python3 --version  # Must be 3.10 or higher
+python3 --version  # Deve ser 3.10 ou superior
 ```
 
-### 2. Clone the Repository
+### 2. Clone o Repositório
 
 ```bash
 git clone https://github.com/your-username/pseudocode_ml_transpiler.git
 cd pseudocode_ml_transpiler
 ```
 
-### 3. Run Your First Example
+### 3. Rode Seu Primeiro Exemplo
 
-Create a simple Portugol program (or use the example below):
+Crie um programa simples em Portugol (ou use o exemplo abaixo):
 
 ```portugol
 programa {
@@ -49,53 +49,53 @@ programa {
 }
 ```
 
-Transpile and run:
+Transpile e execute:
 
 ```bash
 python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por --run
 ```
 
-Expected output after you input two grades:
+Saída esperada após você inserir duas notas:
 ```
 A média é: 7.5
 ```
 
 ---
 
-## Usage Examples
+## Exemplos de Uso
 
-### Basic Transpilation
+### Transpilação Básica
 
-Generate Python code from Portugol:
+Gere código Python a partir de Portugol:
 
 ```bash
 python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por
 ```
 
-This creates a `.py` file in `portugol_out/` directory.
+Isso cria um arquivo `.py` no diretório `portugol_out/`.
 
-### Debug: View Tokens
+### Depuração: Ver Tokens
 
-See how the lexer tokenizes your code:
+Veja como o Lexer tokeniza o seu código:
 
 ```bash
 python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por --tokens
 ```
 
-Output example:
+Exemplo de saída:
 ```
 [Token(type=PROGRAMA, value='programa'), Token(type=ABRE_CHAVE, value='{'), ...]
 ```
 
-### Debug: View AST
+### Depuração: Ver AST
 
-See the Abstract Syntax Tree produced by the parser:
+Veja a Abstract Syntax Tree produzida pelo Parser:
 
 ```bash
 python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por --ast
 ```
 
-### Transpile to Custom Directory
+### Transpilar para um Diretório Customizado
 
 ```bash
 python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por --output-dir ./my_output/
@@ -103,36 +103,36 @@ python3 portugol-transpiler/transpilador.py exercises_portugol/01_media_nota.por
 
 ---
 
-## Supported Portugol Subset
+## Subconjunto de Portugol Suportado
 
-This transpiler implements **Portugol Studio** dialect with the following features:
+Este transpilador implementa o dialeto do **Portugol Studio** com as seguintes funcionalidades:
 
-### Types
+### Tipos
 - `inteiro` → Python `int`
 - `real` → Python `float`
 - `logico` → Python `bool` (`verdadeiro`/`falso`)
 - `cadeia` → Python `str`
-- Vectors: `inteiro v[10]` → Python `list`
-- Matrices: `real m[5][3]` → Python nested `list`
+- Vetores: `inteiro v[10]` → Python `list`
+- Matrizes: `real m[5][3]` → Python nested `list`
 
-### Program Structure
+### Estrutura do Programa
 ```portugol
 programa {
-  // global variables
+  // variáveis globais
   inteiro x = 42
   
   funcao inicio() {
-    // entry point - required
+    // ponto de entrada - obrigatório
   }
 }
 ```
 
-### Control Flow
+### Controle de Fluxo
 - **If/Else**: `se (cond) { ... } senao se { ... } senao { ... }`
 - **While**: `enquanto (cond) { ... }`
 - **For**: `para (inteiro i = 0; i < n; i++) { ... }`
 
-### Functions & Procedures
+### Funções & Procedimentos
 ```portugol
 funcao real sigmoide(real z) {
   retorne 1.0 / (1.0 + exp(-z))
@@ -145,28 +145,28 @@ funcao inicializar(real &v[], inteiro n) {
 }
 ```
 
-### Operators & Built-ins
+### Operadores & Built-ins
 
-**Arithmetic**: `+ - * / %`  
-**Power**: `^` → Python `**`  
-**Logical**: `e` (and), `ou` (or), `nao` (not)  
+**Aritméticos**: `+ - * / %`  
+**Potência**: `^` → Python `**`  
+**Lógicos**: `e` (and), `ou` (or), `nao` (not)  
 
-**Built-in Functions**:
+**Funções Built-in**:
 - I/O: `escreva()`, `escreval()`, `leia()`
-- Math: `raiz()`, `exp()`, `logaritmo()`, `absoluto()`, `aleatorio()`
-- **ML Extensions** (custom to transpiler):
-  - `ler_csv()` - Read CSV data
-  - `normalizar_zscore()` - Z-score normalization
-  - `dividir_treino_teste()` - Train/test split
-  - `salvar_pesos()` - Save model weights
+- Matemática: `raiz()`, `exp()`, `logaritmo()`, `absoluto()`, `aleatorio()`
+- **Extensões de ML** (customizadas para o transpilador):
+  - `ler_csv()` - Ler dados de um CSV
+  - `normalizar_zscore()` - Normalização Z-score
+  - `dividir_treino_teste()` - Divisão treino/teste (Train/test split)
+  - `salvar_pesos()` - Salvar pesos do modelo
 
-**For complete specification**, see [SPEC_DEFINITIVA.md](SPEC_DEFINITIVA.md).
+**Para a especificação completa**, veja [SPEC_DEFINITIVA.md](SPEC_DEFINITIVA.md).
 
 ---
 
-## Complete Example: Logistic Regression
+## Exemplo Completo: Regressão Logística
 
-The motivating use case for this transpiler is training a logistic regression classifier:
+O caso de uso motivador para este transpilador é o treinamento de um classificador de Regressão Logística:
 
 ```portugol
 programa {
@@ -185,75 +185,75 @@ programa {
   
   funcao inicio() {
     inteiro N = ler_csv("data.csv", X, y)
-    // ... training loop ...
+    // ... loop de treinamento ...
   }
 }
 ```
 
-**Full example**: [exemplos/regressao_logistica.por](portugol-transpiler/exemplos/regressao_logistica.por)
+**Exemplo completo**: [exemplos/regressao_logistica.por](portugol-transpiler/exemplos/regressao_logistica.por)
 
 ---
 
-## Architecture
+## Arquitetura
 
-The transpiler follows a classic compiler pipeline:
+O transpilador segue um pipeline clássico de compiladores:
 
 ```
-Portugol Source (.por)
+Código Fonte em Portugol (.por)
         ↓
-    [Lexer] - Tokenization
+     [Lexer] - Tokenização
         ↓
-   [Parser] - Syntax Analysis
+    [Parser] - Análise Sintática
         ↓
-     [AST] - Abstract Syntax Tree
+      [AST] - Abstract Syntax Tree
         ↓
-  [Emissor] - Code Generation
+   [Emissor] - Geração de Código
         ↓
-  Python Code (.py)
+ Código Python (.py)
 ```
 
-**Learn more**: [Architecture Documentation](docs/arquitetura.md)
+**Saiba mais**: [Documentação da Arquitetura](docs/arquitetura.md)
 
 ---
 
-## Project Roadmap
+## Roadmap do Projeto
 
-See what's planned and completed:
+Veja o que está planejado e concluído:
 
-- ✅ **v1.0-v1.1**: Lexer, Parser, AST, Code Generation, Math Builtins, ML Support
-- 🚀 **Planned**: Multiple dialects, Enhanced error messages, Optimization passes
-- 🔮 **Future**: Concurrency support, Interactive REPL, Web IDE
+- ✅ **v1.0-v1.1**: Lexer, Parser, AST, Geração de Código, Built-ins Matemáticos, Suporte a ML
+- 🚀 **Planejado**: Múltiplos dialetos, Mensagens de erro aprimoradas, Passos de otimização
+- 🔮 **Futuro**: Suporte a concorrência, REPL Interativo, Web IDE
 
-**Full roadmap**: [docs/roadmap.md](docs/roadmap.md)
-
----
-
-## Contributing
-
-We welcome contributions! Here's how:
-
-1. **Pick a feature** from the [roadmap](docs/roadmap.md)
-2. **Understand the architecture** by reading [Architecture Docs](docs/arquitetura.md)
-3. **Write tests** for your changes
-4. **Submit a PR** with your implementation
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines (coming soon).
+**Roadmap completo**: [docs/roadmap.md](docs/roadmap.md)
 
 ---
 
-## License
+## Contribuindo
 
-MIT License - see LICENSE file for details
+Nós damos boas-vindas a contribuições! Veja como:
 
----
+1. **Escolha uma funcionalidade** do [roadmap](docs/roadmap.md)
+2. **Entenda a arquitetura** lendo a [Documentação da Arquitetura](docs/arquitetura.md)
+3. **Escreva testes** para as suas alterações
+4. **Envie um PR** com a sua implementação
 
-## Questions?
-
-- 📖 Read the [Architecture Documentation](docs/arquitetura.md)
-- 🗺️ Check the [Project Roadmap](docs/roadmap.md)
-- 📚 Reference the [Spec](SPEC_DEFINITIVA.md)
-- 💬 Open an issue on GitHub
+Veja [CONTRIBUTING.md](CONTRIBUTING.md) para diretrizes detalhadas (em breve).
 
 ---
 
-**Made with ❤️ for students learning compilers and ML**
+## Licença
+
+Licença MIT - veja o arquivo LICENSE para detalhes
+
+---
+
+## Dúvidas?
+
+- 📖 Leia a [Documentação da Arquitetura](docs/arquitetura.md)
+- 🗺️ Verifique o [Roadmap do Projeto](docs/roadmap.md)
+- 📚 Consulte a [Especificação](SPEC_DEFINITIVA.md)
+- 💬 Abra uma issue no GitHub
+
+---
+
+**Feito com ❤️ para estudantes aprendendo sobre compiladores e ML**

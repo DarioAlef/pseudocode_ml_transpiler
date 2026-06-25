@@ -12,3 +12,12 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+*.pytest_cache/
+.ruff_cache/
+
+# Universal / OS
+.env*
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp

@@ -35,7 +35,7 @@ class SC005RegressaoCompilaTest(unittest.TestCase):
     def setUp(self):
         """Prepara o ambiente limpando os arquivos gerados."""
         self._portugol_out = os.path.join(PROJECT_DIR, "portugol_out")
-        self._caminho_csv = os.path.join(self._portugol_out, "dados_sinteticos.csv")
+        self._caminho_csv = os.path.join(self._portugol_out, "dados.csv")
         self._caminho_modelo = os.path.join(self._portugol_out, "modelo.txt")
         self._remover_arquivos()
 
@@ -74,7 +74,7 @@ class SC005RegressaoCompilaTest(unittest.TestCase):
         _run_cli(CAMINHO_REG)
         with open(SAIDA_PY, encoding="utf-8") as f:
             primeira = f.readline().rstrip("\n")
-        self.assertEqual(primeira, "# GERADO AUTOMATICAMENTE — NÃO EDITE")
+        self.assertEqual(primeira, "# GERADO AUTOMATICAMENTE")
 
     def test_sem_tabs_no_gerado(self):
         """Valida a ausencia de tabs no arquivo gerado."""

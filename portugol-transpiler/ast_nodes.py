@@ -172,6 +172,34 @@ class FunctionNode(Node):
 class ProgramNode(Node):
     """Raiz da AST: programa completo com funcoes e variaveis globais."""
 
+    incluas: list = field(default_factory=list)
     funcoes: list = field(default_factory=list)
     globais: list = field(default_factory=list)
     dialeto: str = "portugol_studio"
+
+@dataclass
+class IncluaNode(Node):
+    """Declaracao de importacao: inclua biblioteca X --> Y"""
+
+    biblioteca: str = ""
+    apelido: str = ""
+
+@dataclass
+class EscolhaCasoNode(Node):
+    """Comando escolha/caso."""
+
+    expr: Optional[Node] = None
+    casos: list = field(default_factory=list)
+    caso_contrario: Optional[BlockNode] = None
+
+@dataclass
+class MemberAccessNode(Node):
+    """Acesso a membro: base.membro"""
+
+    base: Optional[Node] = None
+    membro: str = ""
+
+@dataclass
+class BreakNode(Node):
+    """Comando pare (break)"""
+    pass

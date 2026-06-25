@@ -10,7 +10,7 @@ Contrato publico:
   - classe Emissor com metodo gerar(programa: ProgramNode) -> str
   - funcao de conveniencia emitir(programa) -> str
 Garantias sobre a string retornada:
-  1. Primeira linha == "# GERADO AUTOMATICAMENTE — NÃO EDITE"
+  1. Primeira linha == "# GERADO AUTOMATICAMENTE"
   2. Resultado passa em compile(...) / python -m py_compile
   3. Indentacao somente com espacos, em multiplos de 4
   4. Rodape "if __name__ == \"__main__\":\\n    inicio()"
@@ -21,18 +21,22 @@ from ast_nodes import (
     AssignNode,
     BinaryExprNode,
     BlockNode,
+    BreakNode,
     CallExprNode,
+    EscolhaCasoNode,
     ForStmtNode,
     IfStmtNode,
+    IncluaNode,
     IndexExprNode,
     LiteralNode,
+    MemberAccessNode,
     ReturnStmtNode,
     UnaryExprNode,
     VarDeclNode,
     WhileStmtNode,
 )
 
-_CABECALHO = "# GERADO AUTOMATICAMENTE — NÃO EDITE"
+_CABECALHO = "# GERADO AUTOMATICAMENTE"
 
 _ZERO_VALUES = {
     "inteiro": "0",
@@ -91,6 +95,10 @@ _BUILTINS_RUNTIME = {
     "dividir_treino_teste",
     "salvar_pesos",
     "carregar_pesos",
+    "limpa",
+    "arq",
+    "tx",
+    "ti",
 }
 
 
@@ -113,6 +121,7 @@ class Emissor:
         self._runtime_usado = set()
         self._tabela_simbolos = None
         self._funcao_atual = None
+        self._innermost_block = []
 
     def gerar(self, programa, tabela_simbolos=None):
         """Gera o codigo Python completo a partir de um ProgramNode.
@@ -130,6 +139,7 @@ class Emissor:
         self._runtime_usado = set()
         self._tabela_simbolos = tabela_simbolos
         self._funcao_atual = None
+        self._innermost_block = []
 
         self._registrar_globais(programa.globais)
 
@@ -293,6 +303,12 @@ class Emissor:
             self._emitir_call_stmt(node)
         elif isinstance(node, BlockNode):
             self._emitir_bloco(node)
+        elif isinstance(node, EscolhaCasoNode):
+            self._emitir_escolha(node)
+        elif isinstance(node, BreakNode):
+            self._emitir_break(node)
+        elif isinstance(node, IncluaNode):
+            pass  # tratamos os imports nativamente
         else:
             raise NotImplementedError(
                 f"statement nao suportado: {type(node).__name__}"
@@ -356,7 +372,9 @@ class Emissor:
         cond = self._expr(node.cond)
         self.linha(f"while {cond}:")
         self.indentar()
+        self._innermost_block.append("loop")
         self._emitir_bloco(node.body)
+        self._innermost_block.pop()
         self.desindentar()
 
     def _emitir_for(self, node):
@@ -371,7 +389,9 @@ class Emissor:
             else:
                 self.linha(f"for {var} in range({inicio}, {fim}, {passo}):")
             self.indentar()
+            self._innermost_block.append("loop")
             self._emitir_bloco(node.body)
+            self._innermost_block.pop()
             self.desindentar()
             return
 
@@ -380,7 +400,9 @@ class Emissor:
         cond = self._expr(node.cond) if node.cond is not None else "True"
         self.linha(f"while {cond}:")
         self.indentar()
+        self._innermost_block.append("loop")
         self._emitir_bloco(node.body)
+        self._innermost_block.pop()
         if node.post is not None:
             self._emitir_stmt(node.post)
         self.desindentar()
@@ -465,6 +487,31 @@ class Emissor:
 
         return var, inicio, fim, passo
 
+    def _emitir_escolha(self, node):
+        expr = self._expr(node.expr)
+        self.linha(f"match {expr}:")
+        self.indentar()
+        self._innermost_block.append("escolha")
+        for caso_expr, corpo in node.casos:
+            val = self._expr(caso_expr)
+            self.linha(f"case {val}:")
+            self.indentar()
+            self._emitir_bloco(corpo)
+            self.desindentar()
+        if node.caso_contrario is not None:
+            self.linha("case _:")
+            self.indentar()
+            self._emitir_bloco(node.caso_contrario)
+            self.desindentar()
+        self._innermost_block.pop()
+        self.desindentar()
+
+    def _emitir_break(self, node):
+        if self._innermost_block and self._innermost_block[-1] == "loop":
+            self.linha("break")
+        else:
+            self.linha("pass  # pare (ignorado por restricoes do Python match)")
+
     def _emitir_return(self, node):
         """Emite return <expr> ou return."""
         if node.value is not None:
@@ -523,6 +570,8 @@ class Emissor:
             return self._expr_index(node)
         if isinstance(node, CallExprNode):
             return self._expr_call(node)
+        if isinstance(node, MemberAccessNode):
+            return self._expr_member_access(node)
         raise NotImplementedError(
             f"expressao nao suportada: {type(node).__name__}"
         )
@@ -544,6 +593,8 @@ class Emissor:
                 return "False"
             return "True" if value else "False"
         if kind == "ident":
+            if value in _BUILTINS_RUNTIME:
+                self._runtime_usado.add(value)
             return str(value)
         return str(value)
 
@@ -570,6 +621,10 @@ class Emissor:
         base = self._expr(node.base)
         indices = "".join(f"[{self._expr(i)}]" for i in node.indices)
         return f"{base}{indices}"
+
+    def _expr_member_access(self, node):
+        base = self._expr(node.base)
+        return f"{base}.{node.membro}"
 
     def _expr_call(self, node):
         """Despacha chamada por nome: builtins de E/S, math, nativo, runtime ou direta."""

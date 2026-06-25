@@ -25,10 +25,12 @@ from ast_nodes import (
     BinaryExprNode,
     BlockNode,
     CallExprNode,
+    EscolhaCasoNode,
     ForStmtNode,
     IfStmtNode,
     IndexExprNode,
     LiteralNode,
+    MemberAccessNode,
     ReturnStmtNode,
     UnaryExprNode,
     VarDeclNode,
@@ -57,6 +59,10 @@ _BUILTINS = {
     "dividir_treino_teste",
     "salvar_pesos",
     "carregar_pesos",
+    "limpa",
+    "arq",
+    "tx",
+    "ti",
 }
 
 
@@ -219,6 +225,14 @@ class SemanticAnalyzer:
                     self._aviso(node, "retorno com valor em procedimento")
         elif isinstance(node, CallExprNode):
             self._visitar_call(node, escopo)
+        elif isinstance(node, EscolhaCasoNode):
+            if node.expr is not None:
+                self._visitar_expr(node.expr, escopo)
+            for caso_expr, corpo in node.casos:
+                self._visitar_expr(caso_expr, escopo)
+                self._visitar_bloco(corpo, escopo)
+            if node.caso_contrario is not None:
+                self._visitar_bloco(node.caso_contrario, escopo)
         elif isinstance(node, BlockNode):
             self._visitar_bloco(node, escopo)
 
@@ -229,6 +243,8 @@ class SemanticAnalyzer:
         alvo = node.alvo
         if isinstance(alvo, IndexExprNode):
             self._visitar_expr(alvo, escopo)
+        elif isinstance(alvo, MemberAccessNode):
+            self._visitar_expr(alvo.base, escopo)
         elif isinstance(alvo, LiteralNode) and alvo.kind == "ident":
             if escopo.resolver(alvo.value) is None and alvo.value not in _BUILTINS:
                 escopo.declarar(Symbol(nome=alvo.value, tipo="", kind="var"))
@@ -250,6 +266,8 @@ class SemanticAnalyzer:
             self._visitar_expr(node.base, escopo)
             for indice in node.indices:
                 self._visitar_expr(indice, escopo)
+        elif isinstance(node, MemberAccessNode):
+            self._visitar_expr(node.base, escopo)
 
     def _visitar_call(self, node, escopo):
         """Verifica aridade de funcao declarada e visita os argumentos."""

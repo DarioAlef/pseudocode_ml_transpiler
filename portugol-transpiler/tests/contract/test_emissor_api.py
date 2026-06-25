@@ -15,7 +15,7 @@ from emissor import Emissor, emitir  # noqa: E402
 from lexer import tokenize  # noqa: E402
 from parser import parse  # noqa: E402
 
-CABECALHO = "# GERADO AUTOMATICAMENTE — NÃO EDITE"
+CABECALHO = "# GERADO AUTOMATICAMENTE"
 
 CODIGO_MEDIA = """programa {
   funcao inicio() {

@@ -10,12 +10,16 @@ from ast_nodes import (
     AssignNode,
     BinaryExprNode,
     BlockNode,
+    BreakNode,
     CallExprNode,
+    EscolhaCasoNode,
     ForStmtNode,
     FunctionNode,
     IfStmtNode,
+    IncluaNode,
     IndexExprNode,
     LiteralNode,
+    MemberAccessNode,
     ParamNode,
     Position,
     ProgramNode,
@@ -26,6 +30,7 @@ from ast_nodes import (
     WhileStmtNode,
 )
 from lexer import TokenType
+import copy
 
 _TIPOS = (TokenType.INTEIRO, TokenType.REAL, TokenType.LOGICO, TokenType.CADEIA)
 _TIPO_NOMES = {
@@ -126,17 +131,32 @@ class Parser:
         pos = self._pos_token()
         self._esperar(TokenType.PROGRAMA, "programa")
         self._esperar(TokenType.LBRACE, "{")
+        incluas = []
         funcoes = []
         globais = []
         while not self._verificar(TokenType.RBRACE, TokenType.EOF):
-            if self._verificar(TokenType.FUNCAO):
+            if self._verificar(TokenType.INCLUA):
+                incluas.append(self._inclua())
+            elif self._verificar(TokenType.FUNCAO):
                 funcoes.append(self._funcao())
             else:
-                globais.append(self._var_decl())
+                globais.extend(self._var_decl())
         self._esperar(TokenType.RBRACE, "}")
         return ProgramNode(
-            funcoes=funcoes, globais=globais, dialeto="portugol_studio", pos=pos
+            incluas=incluas, funcoes=funcoes, globais=globais, dialeto="portugol_studio", pos=pos
         )
+
+    def _inclua(self):
+        pos = self._pos_token()
+        self._esperar(TokenType.INCLUA, "inclua")
+        self._esperar(TokenType.BIBLIOTECA, "biblioteca")
+        nome_token = self._esperar(TokenType.IDENT, "nome da biblioteca")
+        biblioteca = nome_token.valor
+        apelido = ""
+        if self._casar(TokenType.SETA):
+            apelido_token = self._esperar(TokenType.IDENT, "apelido da biblioteca")
+            apelido = apelido_token.valor
+        return IncluaNode(biblioteca=biblioteca, apelido=apelido, pos=pos)
 
     def _funcao(self):
         pos = self._pos_token()
@@ -191,7 +211,11 @@ class Parser:
         self._esperar(TokenType.LBRACE, "{")
         stmts = []
         while not self._verificar(TokenType.RBRACE, TokenType.EOF):
-            stmts.append(self._statement())
+            stmt = self._statement()
+            if isinstance(stmt, list):
+                stmts.extend(stmt)
+            else:
+                stmts.append(stmt)
         self._esperar(TokenType.RBRACE, "}")
         return BlockNode(stmts=stmts, pos=pos)
 
@@ -206,37 +230,61 @@ class Parser:
             return self._para()
         if self._verificar(TokenType.RETORNE):
             return self._retorne()
+        if self._verificar(TokenType.ESCOLHA):
+            return self._escolha()
+        if self._verificar(TokenType.PARE):
+            pos = self._pos_token()
+            self._avancar()
+            return BreakNode(pos=pos)
         return self._atribuicao_ou_chamada()
 
     def _var_decl(self):
         pos = self._pos_token()
         tipo = self._tipo()
-        nome_token = self._esperar(TokenType.IDENT, "nome de variavel")
-        nome = nome_token.valor
-        if self._verificar(TokenType.LBRACKET):
-            dims = []
-            while self._casar(TokenType.LBRACKET):
-                dims.append(self._expr())
-                self._esperar(TokenType.RBRACKET, "]")
-            tipo.is_array = True
-            tipo.dims = dims
-        init = None
-        if self._casar(TokenType.ASSIGN):
-            init = self._expr()
-        return VarDeclNode(tipo=tipo, nome=nome, init=init, pos=pos)
+        decls = []
+        while True:
+            nome_token = self._esperar(TokenType.IDENT, "nome de variavel")
+            nome = nome_token.valor
+            
+            tipo_atual = copy.deepcopy(tipo)
+            
+            if self._verificar(TokenType.LBRACKET):
+                dims = []
+                while self._casar(TokenType.LBRACKET):
+                    dims.append(self._expr())
+                    self._esperar(TokenType.RBRACKET, "]")
+                tipo_atual.is_array = True
+                tipo_atual.dims = dims
+                
+            init = None
+            if self._casar(TokenType.ASSIGN):
+                init = self._expr()
+                
+            decls.append(VarDeclNode(tipo=tipo_atual, nome=nome, init=init, pos=pos))
+            
+            if not self._casar(TokenType.VIRGULA):
+                break
+        return decls
 
     def _atribuicao_ou_chamada(self):
         pos = self._pos_token()
         nome_token = self._esperar_nome()
         nome = nome_token.valor
+        alvo_base = LiteralNode(kind="ident", value=nome, pos=pos)
+        
+        while self._casar(TokenType.PONTO):
+            membro_token = self._esperar(TokenType.IDENT, "membro")
+            alvo_base = MemberAccessNode(base=alvo_base, membro=membro_token.valor, pos=pos)
+
         if self._verificar(TokenType.LPAREN):
-            return self._chamada(nome, pos)
+            return self._chamada_from_base(alvo_base, pos)
+            
         indices = []
         while self._verificar(TokenType.LBRACKET):
             self._avancar()
             indices.append(self._expr())
             self._esperar(TokenType.RBRACKET, "]")
-        alvo_base = LiteralNode(kind="ident", value=nome, pos=pos)
+            
         alvo = (
             IndexExprNode(base=alvo_base, indices=indices, pos=pos)
             if indices
@@ -262,8 +310,8 @@ class Parser:
         valor = self._expr()
         return AssignNode(alvo=alvo, op="=", valor=valor, pos=pos)
 
-    def _chamada(self, nome, pos):
-        """Parseia lista de argumentos e retorna CallExprNode."""
+    def _chamada_from_base(self, callee, pos):
+        """Parseia lista de argumentos e retorna CallExprNode com callee ja parseado."""
         self._esperar(TokenType.LPAREN, "(")
         args = []
         if not self._verificar(TokenType.RPAREN):
@@ -271,8 +319,12 @@ class Parser:
             while self._casar(TokenType.VIRGULA):
                 args.append(self._expr())
         self._esperar(TokenType.RPAREN, ")")
-        callee = LiteralNode(kind="ident", value=nome, pos=pos)
         return CallExprNode(callee=callee, args=args, pos=pos)
+
+    def _chamada(self, nome, pos):
+        """Metodo de compatibilidade."""
+        callee = LiteralNode(kind="ident", value=nome, pos=pos)
+        return self._chamada_from_base(callee, pos)
 
     def _se(self):
         pos = self._pos_token()
@@ -297,6 +349,38 @@ class Parser:
                 break
         return IfStmtNode(cond=cond, then=then, elifs=elifs, else_=else_, pos=pos)
 
+    def _escolha(self):
+        pos = self._pos_token()
+        self._esperar(TokenType.ESCOLHA, "escolha")
+        self._esperar(TokenType.LPAREN, "(")
+        expr = self._expr()
+        self._esperar(TokenType.RPAREN, ")")
+        self._esperar(TokenType.LBRACE, "{")
+        casos = []
+        caso_contrario = None
+        while not self._verificar(TokenType.RBRACE, TokenType.EOF):
+            if self._verificar(TokenType.CASO):
+                self._avancar()
+                if self._verificar(TokenType.CONTRARIO):
+                    self._avancar()
+                    self._esperar(TokenType.DOIS_PONTOS, ":")
+                    stmts = []
+                    while not self._verificar(TokenType.CASO, TokenType.RBRACE, TokenType.EOF):
+                        stmts.append(self._statement())
+                    caso_contrario = BlockNode(stmts=stmts, pos=self._pos_token())
+                else:
+                    caso_expr = self._expr()
+                    self._esperar(TokenType.DOIS_PONTOS, ":")
+                    stmts = []
+                    while not self._verificar(TokenType.CASO, TokenType.RBRACE, TokenType.EOF):
+                        stmts.append(self._statement())
+                    casos.append((caso_expr, BlockNode(stmts=stmts, pos=self._pos_token())))
+            else:
+                token = self._atual()
+                raise ErroSintatico(token.linha, token.coluna, f"esperado 'caso', encontrado '{token.valor}'")
+        self._esperar(TokenType.RBRACE, "}")
+        return EscolhaCasoNode(expr=expr, casos=casos, caso_contrario=caso_contrario, pos=pos)
+
     def _enquanto(self):
         pos = self._pos_token()
         self._esperar(TokenType.ENQUANTO, "enquanto")
@@ -313,7 +397,11 @@ class Parser:
         init = None
         if not self._verificar(TokenType.PONTO_VIRGULA):
             if self._verificar(*_TIPOS):
-                init = self._var_decl()
+                decls = self._var_decl()
+                if len(decls) == 1:
+                    init = decls[0]
+                else:
+                    init = BlockNode(stmts=decls, pos=pos)
             else:
                 init = self._atribuicao_ou_chamada()
         self._esperar(TokenType.PONTO_VIRGULA, ";")
@@ -452,17 +540,23 @@ class Parser:
         if token.tipo in (TokenType.IDENT, TokenType.INICIO):
             self._avancar()
             nome = token.valor
+            base = LiteralNode(kind="ident", value=nome, pos=pos)
+            
+            while self._casar(TokenType.PONTO):
+                membro_token = self._esperar(TokenType.IDENT, "membro")
+                base = MemberAccessNode(base=base, membro=membro_token.valor, pos=pos)
+
             if self._verificar(TokenType.LPAREN):
-                return self._chamada(nome, pos)
+                return self._chamada_from_base(base, pos)
+                
             if self._verificar(TokenType.LBRACKET):
                 indices = []
                 while self._verificar(TokenType.LBRACKET):
                     self._avancar()
                     indices.append(self._expr())
                     self._esperar(TokenType.RBRACKET, "]")
-                base = LiteralNode(kind="ident", value=nome, pos=pos)
                 return IndexExprNode(base=base, indices=indices, pos=pos)
-            return LiteralNode(kind="ident", value=nome, pos=pos)
+            return base
         raise ErroSintatico(
             token.linha,
             token.coluna,
