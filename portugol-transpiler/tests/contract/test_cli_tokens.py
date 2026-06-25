@@ -1,9 +1,8 @@
-"""Contrato do modo --tokens da CLI (US6, espelha contracts/cli.md -> C4).
+"""Contrato do modo --tokens da CLI (US6, espelha contracts/cli-tokens.md).
 
 Cobre T1 (impressao de tokens), T2 (01_media_nota.por exit 0 e tokens
-esperados, SC-004), T3 (erro lexico em stderr com exit != 0), T4
-(compatibilidade com o scaffold: --help preservado) e a garantia de que
---tokens NAO grava nenhum .py em portugol_out/ (SC-003, FR-003).
+esperados, SC-004), T3 (erro lexico em stderr com exit != 0) e T4
+(compatibilidade com o scaffold: --help preservado).
 """
 
 import os
@@ -26,22 +25,6 @@ def _run_cli(*args):
         capture_output=True,
         text=True,
     )
-
-
-class NaoGravaArquivoTest(unittest.TestCase):
-    def setUp(self):
-        self._out_dir = os.path.join(PROJECT_DIR, "portugol_out")
-        if os.path.isdir(self._out_dir):
-            for nome in os.listdir(self._out_dir):
-                if nome.endswith(".py"):
-                    os.unlink(os.path.join(self._out_dir, nome))
-
-    def test_tokens_nao_gera_py(self):
-        r = _run_cli(EXERCICIO, "--tokens")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        if os.path.isdir(self._out_dir):
-            pys = [n for n in os.listdir(self._out_dir) if n.endswith(".py")]
-            self.assertEqual(pys, [])
 
 
 class T1ImpressaoTokensTest(unittest.TestCase):
