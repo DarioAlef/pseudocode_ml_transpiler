@@ -89,6 +89,7 @@ _BUILTINS_RUNTIME = {
     "normalizar_zscore",
     "dividir_treino_teste",
     "salvar_pesos",
+    "carregar_pesos",
 }
 
 
