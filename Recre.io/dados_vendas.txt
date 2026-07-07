@@ -1,0 +1,11 @@
+26/06/2026;Sexta-feira;X-Salada;100;95;380.0;5
+26/06/2026;Sexta-feira;Coca-Cola 2L;30;20;140.0;10
+26/06/2026;Sexta-feira;Coxinha de Frango;50;50;200.0;0
+26/06/2026;Sexta-feira;X-Caboquinho;40;35;175.0;5
+27/06/2026;Sabado;X-Salada;80;60;240.0;20
+27/06/2026;Sabado;Guaraná Baré 2L;20;18;99.0;2
+27/06/2026;Sabado;Misto;50;48;192.0;2
+27/06/2026;Sabado;Picole Glacial;30;25;75.0;5
+28/06/2026;Domingo;Coca-Cola 2L;0;1;12.0;-1
+28/06/2026;Domingo;Coca-Cola 2L;0;1;12.0;-1
+28/06/2026;Domingo;X-Salada;0;8;80.0;-8
